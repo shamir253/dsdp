@@ -1,0 +1,3 @@
+2019-06-26 21:44:13||::1||8926||http://localhost/vasapi/getToken ||Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36
+2019-06-26 21:44:21||::1||8927||http://localhost/vasapi/getToken ||Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36
+2019-06-26 21:44:29||::1||8931||http://localhost/vasapi/getToken ||Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36

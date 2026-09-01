@@ -1,0 +1,2 @@
+2019-08-05 17:30:22||::1||58498||http://localhost/vasapi/profile/subscribe?msisdn=8801878958625&service=Dream11&package=Daily&channel=web&clickID=123&company=BigPlus ||PostmanRuntime/7.15.2
+2019-08-05 17:30:43||::1||58502||http://localhost/vasapi/profile/subscribe?msisdn=8801878958666&service=Dream11&package=Daily&channel=web&clickID=123&company=BigPlus ||PostmanRuntime/7.15.2

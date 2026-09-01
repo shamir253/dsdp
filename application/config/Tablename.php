@@ -1,0 +1,30 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+$config['AccounrType'] 				= 'account_type';
+$config['user'] 					= 'user';
+$config['AddBalanceHistory'] 		= 'add_balance_history';
+$config['ApiUser'] 					= 'api_user';
+$config['ApiConf'] 					= 'api';
+$config['BkashNumber'] 				= 'bkash_number';
+$config['FlexiAmountOrInternet'] 	= 'flexi_amount_or_internet';
+$config['FlexiCommission'] 			= 'flexi_commission';
+$config['FlexiRate'] 				= 'flexi_rate';
+$config['FlexiloadCommissionSet'] 	= 'flexiload_commission_set';
+$config['IndiaDetails'] 			= 'india_details';
+$config['InternetPackge'] 			= 'internet_packge';
+$config['LoginLog'] 				= 'login_log';
+$config['MenuPermission'] 			= 'menu_permission';
+$config['Modem'] 					= 'modem';
+$config['ModemCommission'] 			= 'modem_commission';
+$config['ModemRate'] 				= 'modem_rate';
+$config['OperatorMsg'] 				= 'operator_msg';
+$config['OppAmountApps'] 			= 'opp_amount_apps';
+$config['Pin'] 						= 'pin';
+$config['PinActivationHistory'] 	= 'pin_activation_history';
+$config['PinProduct'] 				= 'pin_product';
+$config['ReceiveMsg'] 				= 'receive_msg';
+$config['Role'] 					= 'role';
+$config['SendCustomerMsg'] 			= 'send_customer_msg';
+$config['Set'] 						= 'set';
+$config['TopUpHistory'] 			= 'top_up_history';
+?>
