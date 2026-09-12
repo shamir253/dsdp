@@ -10,6 +10,36 @@ class Service_model extends Common_model{
 		$query 	= $this->db->query($sql);
 		return $query->result_array();
 	}
+
+    	public function insert_Into_Outbox($data){
+		$sender = isset($data['sender'])?$data['sender']:"";
+		$receiver = isset($data['receiver'])?$data['receiver']:"";
+		$message = isset($data['message'])?$data['message']:"";
+		$request_time = isset($data['request_time'])?$data['request_time']:"";
+		$status = isset($data['status'])?$data['status']:"";
+		$schedule_time = isset($data['schedule_time'])?$data['schedule_time']:"";
+		$sent_time = isset($data['sent_time'])?$data['sent_time']:"";
+		$delivery_status = isset($data['delivery_status'])?$data['delivery_status']:"";
+		$resource_url = isset($data['resource_url'])?$data['resource_url']:"";
+		$client_correlator = isset($data['client_correlator'])?$data['client_correlator']:"";
+		$server_refId = isset($data['server_refId'])?$data['server_refId']:"";
+		$isNow = isset($data['isNow'])?$data['isNow']:"";
+		$sender_name = isset($data['sender_name'])?$data['sender_name']:"";
+		$error_code = isset($data['error_code'])?$data['error_code']:"";
+		$error_message = isset($data['error_message'])?$data['error_message']:"";
+
+		$sql = "INSERT INTO $this->tbl_outbox(sender,receiver,message,request_time,status,schedule_time,sent_time,delivery_status,resource_url,client_correlator,server_refId,isNow,sender_name,error_code,error_message) 
+		VALUES ('$sender','$receiver',N'$message','$request_time','$status','$schedule_time','$sent_time','$delivery_status','$resource_url','$client_correlator','$server_refId','$isNow','$sender_name','$error_code','$error_message')";
+		
+		//echo $sql;die();
+		if (!$this->db->query($sql)) {
+			return FALSE;
+		}
+		else {
+			return $this->db->insert_id();
+		}		
+	}
+
         
     public function getServiceDetailsFromServiceNameAndRealPackage($servicename, $packagename){
 		$sql = "SELECT * FROM ".$this->package_table." where serviceName = '$servicename' and package = '$packagename'";
@@ -17,7 +47,7 @@ class Service_model extends Common_model{
 		return $query->result_array();
 	}
 
-        public function getServiceDetailsFormServiceName($servicename){
+    public function getServiceDetailsFormServiceName($servicename){
 		$sql = "SELECT * FROM ".$this->package_table." where serviceName = '$servicename'";
 		$query 	= $this->db->query($sql);
 		return $query->result_array();
@@ -36,18 +66,37 @@ class Service_model extends Common_model{
 		return $query->result_array();
 	}
         
-        public function getSubscriptionDetailFromMsisdn($msisdn){
+    public function getSubscriptionDetailFromMsisdn($msisdn){
 		$sql = "SELECT * FROM ".$this->tbl_subscriber_profile." where msisdn = '$msisdn'";
 		$query 	= $this->db->query($sql);
 		//echo $this->db->last_query();die();
 		return $query->result_array();
 	}
 
-        public function getServiceNameFromApplicationOperatonAndCountry($applicationId, $operatorId, $countryId){
-		$sql = "SELECT * FROM ".$this->package_table." where applicationId = '$applicationId' and operatorId = '$operatorId' and countryId = '$countryId'";
+    public function getSubscriptionDetailHisotryFromMsisdn($msisdn){
+		$sql = "SELECT * FROM ".$this->tbl_subscriber_profile_hisotry." where msisdn = '$msisdn'";
+		$query 	= $this->db->query($sql);
+		//echo $this->db->last_query();die();
+		return $query->result_array();
+	}
+
+	public function getServiceNameFromRobiServiceName($robiServiceName){
+		$sql = "SELECT * FROM ".$this->package_table." where robiServiceName = '$robiServiceName'";
 		$query 	= $this->db->query($sql);
 		//echo $this->db->last_query();die();
 		return $query->row()->serviceName;
+	}
+
+
+    public function getServiceNameFromApplicationOperatonAndCountry($applicationId, $operatorId, $countryId){
+		$sql = "SELECT * FROM ".$this->package_table." where applicationId = '$applicationId' and operatorId = '$operatorId' and countryId = '$countryId'";
+		$query 	= $this->db->query($sql);
+		//echo $this->db->last_query();die();
+        if ($query->num_rows() > 0) {
+            return $query->row()->serviceName;
+        }
+
+		return '';
 	}
 
         public function getSubscriptionDeatilsFromMsisdn($msisdn, $applicationId, $operatorId, $countryId){

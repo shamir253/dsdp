@@ -10,20 +10,14 @@ class Profile extends MY_Controller{
 
     }
     
-    function HttpPostMethod($PostURL, $PostData)
+    function HttpPostMethod($url, $data)
     {
-        $url = curl_init($PostURL);
-        $posttoken = json_encode($PostData);
+        $url = curl_init($url);
+        $posttoken = json_encode($data);
         
-        date_default_timezone_set('Asia/Dhaka');
-        $timestamp = date("Y-m-d\TH:i:s.000\Z");
         
         $header = array(
-            'Content-Type:application/json',
-            'version: v1.0',
-            'channelId: Merchant WEB',
-            'timeStamp: '.$timestamp,
-            'x-api-key: D7abqqeZlpwHT9nUQrpp-0sTjYXl0Lvs'
+            'Content-Type:application/json'
         );
 
         curl_setopt($url, CURLOPT_HTTPHEADER, $header);
@@ -68,7 +62,7 @@ class Profile extends MY_Controller{
         return $ResultArray;
     }
 
-    public function index(){
+    public function index() {
         echo "Hi";
     }
     
@@ -95,24 +89,24 @@ class Profile extends MY_Controller{
         $transactionId = round(microtime(true)).$rand_num;
 
         date_default_timezone_set('Asia/Dhaka');
-        $created = date("'Y-m-d\TH:i:s\Z");
+        $created = date("Y-m-d\TH:i:s\Z");
 
         // password digset
         $passwordDigest = $this->genrateBase24Hash($Details['secret'].$nonce.$created.$Details['password']);
         
         $payload = "";
-        $payload = $payload.'spid='.$package_details['spId'];
+        $payload = $payload.'spid='.$Details['spId'];
         $payload = $payload.'&passwordDigest='.$passwordDigest;
         $payload = $payload.'&nonce='.$nonce;
         $payload = $payload.'&created='.$created;
         $payload = $payload.'&transactionId ='.$transactionId;
-        $payload = $payload.'&productID='.$package_details['productId'];
+        $payload = $payload.'&productID='.$Details['productId'];
         $payload = $payload.'&msisdn ='.$msisdn;
-        $payload = $payload.'&language='.$package_details['language'];
-        $payload = $payload.'&callbackURL='.$package_details['callbackURL'];
+        $payload = $payload.'&language='.$Details['language'];
+        $payload = $payload.'&callbackURL='.$Details['callbackURL'];
         $payload = $payload.'&action=1';
-        $payload = $payload.'&amount='.$package_details['amount'];
-        $payload = $payload.'&serviceId='.$package_details['serviceId'];
+        $payload = $payload.'&amount='.$Details['amount'];
+        $payload = $payload.'&serviceId='.$Details['serviceId'];
     
         
         $Result_Data = file_get_contents($url.'?'.$payload);
@@ -133,6 +127,7 @@ class Profile extends MY_Controller{
         echo json_encode($data, JSON_UNESCAPED_SLASHES);
 
     }
+
     
     public function cancel($subId){
         
