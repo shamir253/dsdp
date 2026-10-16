@@ -157,7 +157,27 @@ class Service extends MY_Controller
         }
 
         echo json_encode($data);
+    }
 
+    function deactivateAll() {
+        $msisdn = $this->input->post('msisdn":');
+
+        $response = new Response_Data();
+
+        if (!isset($msisdn) || strlen($msisdn) != 13 || substr($msisdn, 0, 3) != '880') {
+            $response->reponse_code = "0";
+            $response->response_msg = "Invalid Number.";
+            $response->data = "";
+            echo $response->getJSONResponse($response);
+            return;
+        }
+
+        $this->service_model->deleteUserFromAllServices($msisdn);
+
+        $data['status'] = 'Success';
+        $data['message'] = 'All services deactivated successfully';
+
+        echo json_encode($data);
     }
 
     function getServiceValidity($num)

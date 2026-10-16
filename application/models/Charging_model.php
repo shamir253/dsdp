@@ -49,6 +49,18 @@ class Charging_model extends Common_model{
         
         return $this->db->trans_status();
     }
+
+    public function insert_NBound_charging_log($data)
+	{
+		$this->db->insert($this->nbound_charging_details_table, $data);
+
+		if ($this->db->affected_rows() > 0)
+        	$ret = $this->db->insert_id();
+		else 
+			$ret = false;
+
+		return $ret;
+	}
     
     function addRenew($msisdn, $serviceName, $package, $requestId, $type, $transactionId, $status) {
         $data = array(
@@ -136,20 +148,6 @@ class Charging_model extends Common_model{
             return false;
         }    
         
-    function addCallback($callbackUrl) {
-        $data = array(
-             'callbackUrl'=>$callbackUrl
-        );
-        
-        //echo json_encode($data);
-
-        $this->db->trans_start();
-        $this->db->insert($this->callback_history, $data);
-        $this->db->trans_complete();
-        
-        return $this->db->trans_status();
-    }
-    
     function addCallbackOperator($callbackUrl) {
         $data = array(
              'notifyUrl'=>$callbackUrl

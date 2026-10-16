@@ -2,6 +2,8 @@
 if (!defined('BASEPATH')) exit('No direct script access allowed');
 
 class Profile extends MY_Controller{
+    public $charging_channel_northbound = 'NBOUND';
+    
     function __construct(){
         parent::__construct();
         
@@ -92,24 +94,26 @@ class Profile extends MY_Controller{
         $created = date("Y-m-d\TH:i:s\Z");
 
         // password digset
-        $passwordDigest = $this->genrateBase24Hash($Details['secret'].$nonce.$created.$Details['password']);
+        $passwordDigest = $this->genrateBase24Hash((string)$nonce.(string)$Details['amount'].(string)$created.(string)$Details['password']);
         
         $payload = "";
         $payload = $payload.'spid='.$Details['spId'];
         $payload = $payload.'&passwordDigest='.$passwordDigest;
         $payload = $payload.'&nonce='.$nonce;
         $payload = $payload.'&created='.$created;
-        $payload = $payload.'&transactionId ='.$transactionId;
+        $payload = $payload.'&transactionId='.$transactionId;
         $payload = $payload.'&productID='.$Details['productId'];
-        $payload = $payload.'&msisdn ='.$msisdn;
+        $payload = $payload.'&msisdn='.$msisdn;
         $payload = $payload.'&language='.$Details['language'];
         $payload = $payload.'&callbackURL='.$Details['callbackURL'];
-        $payload = $payload.'&action=1';
+        $payload = $payload.'&action=3';
         $payload = $payload.'&amount='.$Details['amount'];
         $payload = $payload.'&serviceId='.$Details['serviceId'];
     
+        echo $url.'?'.$payload."<br>";
         
-        $Result_Data = file_get_contents($url.'?'.$payload);
+        $ResultData = file_get_contents($url.'?'.$payload);
+        echo $ResultData;
         
         // Need to write code for response.
         
@@ -122,9 +126,9 @@ class Profile extends MY_Controller{
             $ref = end($exploded);
         }
         
-        $this->charging_model->addCharging($serviceName, $package, $requestId, $start, $end, $mobile, $email, $invoiceID, $errorCode, $errorMessage, $prevId, $channel, $ref);
+        //$this->charging_model->addCharging($serviceName, $package, $requestId, $start, $end, $mobile, $email, $invoiceID, $errorCode, $errorMessage, $prevId, $channel, $ref);
         
-        echo json_encode($data, JSON_UNESCAPED_SLASHES);
+        //echo json_encode($data, JSON_UNESCAPED_SLASHES);
 
     }
 
@@ -162,6 +166,225 @@ class Profile extends MY_Controller{
         
     }
     
+    private function charge_NorthBound_1stTry($msisdn, $package_details, $actionType){
+
+        $response = new Response_Data();
+
+        $token = $this->getNBoundToken();
+
+        $charge_api = $this->config->item('charge_api_northend', 'service_data/data');
+        $charge_api = str_replace("@msisdn", $msisdn, $charge_api);
+        //echo $msisdn;die();
+        
+        $now = DateTime::createFromFormat('U.u', microtime(true));
+        $now->setTimeZone(new DateTimeZone('Asia/Dhaka'));
+        $request_time = $now->format("Y-m-d H:i:s.u");
+        $request_time = substr($request_time, 0, 23);
+        //echo $request_time;
+
+
+        $userName = $this->config->item('SP_Username', 'service_data/data');
+        $password = $this->config->item('SP_Password', 'service_data/data');
+        $nonce = $this->generate20DigitFast();
+
+        date_default_timezone_set('Asia/Dhaka');
+        $created = date("Y-m-d\TH:i:s\Z");
+
+        $passwordDigest = $this->genrateBase24Hash((string)$nonce.(string)$created.(string)$password);
+        
+
+        $headers = array(
+            'Content-type: application/json',
+            'Accept: application/json',
+            'Apptoken: WSSE realm="SDP", profile="UsernameToken", type="Appkey"',
+            'X-WSSE: UsernameToken Username="'.$userName.'", PasswordDigest="'.$passwordDigest.'", Nonce="'.$nonce.'", Created="'.$created.'"',
+            'X-RequestHeader: request ServiceId="'.$package_details['serviceId'].'", oauth_token=""',
+            'Authorization: Bearer '.$token,
+        );
+        //var_dump($headers);die();
+
+        $rand_num = rand(1000,9999);
+        $transID = "NB".$msisdn.".".round(microtime(true)).".".$rand_num;
+        
+        $amount = $package_details['amount'];
+        $description = $package_details['robiServiceName'];
+		$code = $package_details['serviceId'];
+        $post_data = '
+        {
+            "amountTransaction": {
+                "endUserId": "tel:+'.$msisdn.'",
+                "paymentAmount": {
+                    "chargingInformation": {
+                        "amount": "'.$amount.'",
+                        "currency": "BDT",
+                        "code": "'.$code.'",
+                        "description": ["'.$description.'"]
+                    }
+                },
+                "referenceCode": "'.$transID.'",
+                "transactionOperationStatus": "Charged"
+            }
+        }';
+
+        $data_string = json_encode(json_decode($post_data));
+        //print_r($data_string);die();
+
+        $ch = curl_init($charge_api);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+
+        $result = curl_exec($ch);
+        //print_r($result);die();
+
+        $info = curl_getinfo($ch);
+        if(curl_errno($ch) !== 0)
+        {
+            curl_close($ch);
+            
+            $response->reponse_code = "0";
+            $response->response_msg = "Error";
+            $response->data = "Internal Error";
+            //return $response->getJSONResponse($response);
+            //return "0";
+        }
+        else
+        {
+            curl_close($ch);
+
+            $obj = json_decode($result, true);
+            //print_r($obj);die();
+
+            if(isset($obj['amountTransaction']) && !empty($obj['amountTransaction']))
+            {
+
+                if(isset($obj['amountTransaction']['transactionStatus']) && 
+                    $obj['amountTransaction']['transactionStatus'] == "Charged")
+                {
+                    $response->reponse_code = "1";
+                    $response->response_msg = "SUCCESS";
+                    $response->data = json_encode($obj['amountTransaction']['paymentAmount']);
+                    //return $response->getJSONResponse($response);
+                }
+                else
+                {
+                    $response->reponse_code = "0";
+                    $response->response_msg = "FAILED";
+                    $response->data = json_encode($obj['amountTransaction']['paymentAmount']);
+                    //return $response->getJSONResponse($response);
+                }
+                
+                //die();
+                //return "1";
+            }
+            else if(isset($obj['requestError']) && !empty($obj['requestError']))
+            {
+                if(isset($obj['requestError']['serviceException']) && !empty($obj['requestError']['serviceException']))
+                {
+                    if(isset($obj['requestError']['serviceException']['messageId'])
+                        && !empty($obj['requestError']['serviceException']['messageId'])
+                            && $obj['requestError']['serviceException']['messageId'] == "SVC0002")
+                    {
+                        // Do unsubsciption
+                        $response->reponse_code = "2";
+                        $response->response_msg = "FAILED";
+                        $response->data = json_encode($obj['requestError']);
+                        //return $response->getJSONResponse($response);
+                    }
+                    else
+                    {
+                        $response->reponse_code = "5";
+                        $response->response_msg = "FAILED";
+                        $response->data = json_encode($obj['requestError']);
+                        //return $response->getJSONResponse($response);
+                    }
+                }
+                else if(isset($obj['requestError']['policyException']) && !empty($obj['requestError']['policyException']))
+                {
+                    if(isset($obj['requestError']['policyException']['messageId']) 
+                        && !empty($obj['requestError']['policyException']['messageId'])
+                            && $obj['requestError']['policyException']['messageId'] == "POL0001")
+                    {
+                        // Do unsubsciption, and add to black list.
+                        $response->reponse_code = "3";
+                        $response->response_msg = "FAILED";
+                        $response->data = json_encode($obj['requestError']);
+                        //return $response->getJSONResponse($response);
+                    }
+                    else
+                    {
+                        $response->reponse_code = "6";
+                        $response->response_msg = "FAILED";
+                        $response->data = json_encode($obj['requestError']);
+                        //return $response->getJSONResponse($response);
+                    }
+                }
+				else
+                {
+                    $response->reponse_code = "4";
+                    $response->response_msg = "FAILED";
+                    $response->data = json_encode($obj['requestError']);
+                    //return $response->getJSONResponse($response);
+                }
+				
+
+                //echo $response->getJSONResponse($response);
+                //die();
+            }
+            else 
+            {
+                /*
+                {
+                    "fault": {
+                        "code": 900901,
+                        "message": "Invalid Credentials",
+                        "description": "Access failure for API: /payment/v1, version: v1 status: (900901) - Invalid Credentials. Make sure you have given the correct access token"
+                    }
+                } 
+                */
+                if(isset($obj['fault']['code']) && $obj['fault']['code']=="900901"
+                    && isset($obj['fault']['description']) 
+                    && strpos($obj['fault']['description'], 'correct access token') !== false)
+                {
+                    $response->reponse_code = "-2";
+                    $response->response_msg = "Error";
+                    $response->data = json_encode($obj['fault']['description']);
+                }
+                else
+                {
+                    $response->reponse_code = "0";
+                    $response->response_msg = "Error";
+                    $response->data = json_encode($obj['fault']);
+                    //return $response->getJSONResponse($response);
+                    //die();
+                }
+                
+            }
+        }
+        
+        $data = array(
+            'msisdn' => $msisdn,
+            'servicename' => $package_details['servicename'],
+            'packagename' => $package_details['packagename'],
+            'clientCorrelator' => $transID,
+            'amount' => $package_details['amount'],
+            'referenceCode' => $transID,
+            'requestTime' => $request_time,
+            'chargeStatus' => $response->reponse_code,
+            'chargingChannel' => $this->charging_channel_northbound,
+            'response' => $response->response_msg,
+            'actionType' => $actionType,
+            'response_details' => $response->data
+        );
+
+        $this->charging_model->insert_NBound_charging_log($data);
+
+        return $response->getJSONResponse($response);
+        //die();
+    }
+
+
     public function getPackageFromSubId(){
         $msisdn = $this->input->get('subId');
         $service = $this->input->get('service');

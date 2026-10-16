@@ -11,6 +11,9 @@ class Common_model extends CI_Model {
 
 	protected $tbl_outbox = "dsdp.dbo.tbl_mife_outbox";
 
+	protected $nbound_charging_details_table = "DigitalService.dbo.tbl_mife_charging_nbound";
+	
+
 	function __construct(){
 		 parent::__construct();	 
 	}

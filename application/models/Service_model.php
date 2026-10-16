@@ -168,7 +168,16 @@ class Service_model extends Common_model{
 
             return false;
         }
-        
+
+        function deleteUserFromAllServices($msisdn) {
+            $str = "insert into ".$this->tbl_subscriber_profile_hisotry."(msisdn, serviceName, package, registrationTime, status, lastRenewedTime, renewTime) select msisdn, serviceName, package, registrationTime, status, lastRenewedTime, renewTime from tbl_subscriber_profile where msisdn = '{$msisdn}'";
+            $query=$this->db->query($str);
+            
+            
+            $str = "delete from ".$this->tbl_subscriber_profile." where msisdn = '{$msisdn}'";
+            $query=$this->db->query($str);
+        }
+
         function deleteUser($msisdn, $service) {
             $str = "insert into tbl_subscriber_profile_history(msisdn, serviceName, package, registrationTime, status, lastRenewedTime, renewTime) select msisdn, serviceName, package, registrationTime, status, lastRenewedTime, renewTime from tbl_subscriber_profile where msisdn = '{$msisdn}' and  serviceName = '{$service}'";
             $query=$this->db->query($str);
