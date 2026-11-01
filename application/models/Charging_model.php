@@ -24,21 +24,12 @@ class Charging_model extends Common_model{
         return $this->db->trans_status();
     }
     
-    function addCharging($serviceName, $package, $requestId, $startDate, $endDate, $mobile, $email, $invoiceID, $errorCode, $errorMessage, $prevId, $channel, $ref) {
+    function addCharging($msisdn, $serviceName, $package, $transactionId) {
         $data = array(
+            'msisdn'=>$msisdn,
              'serviceName'=>$serviceName,
              'package'=>$package,
-             'requestId'=>$requestId,
-             'startDate'=>$startDate,
-             'endDate'=>$endDate,
-             'mobile'=>$mobile,
-            'email'=>$email,
-            'invoiceID'=>$invoiceID,
-            'errorCode'=>$errorCode,
-            'errorMessage'=>$errorMessage,
-            'prevId'=>$prevId,
-            'channel'=>$channel,
-            'reference'=>$ref
+             'transactionId'=>$transactionId
         );
         
         //echo json_encode($data);
@@ -48,6 +39,11 @@ class Charging_model extends Common_model{
         $this->db->trans_complete();
         
         return $this->db->trans_status();
+    }
+
+    function addSubscriber($transactionId, $isOndemand = 0) {
+        $sql = "insert into ".$this->tbl_subscriber_profile."(msisdn, service_name, package_name, isOndemand) select msisdn, serviceName, package, $isOndemand from ".$this->aoc_charging_details_table." where transactionId='$transactionId'";
+		$query 	= $this->db->query($sql);
     }
 
     public function insert_NBound_charging_log($data)
@@ -61,6 +57,13 @@ class Charging_model extends Common_model{
 
 		return $ret;
 	}
+
+    function getServiceDetailsFromTransactionId($transactionId) {
+        $sql = "SELECT * FROM ".$this->aoc_charging_details_table." where transactionId = '$transactionId'";
+        $query = $this->db->query($sql);    
+        return $query->result_array();
+        
+    }
     
     function addRenew($msisdn, $serviceName, $package, $requestId, $type, $transactionId, $status) {
         $data = array(
@@ -82,18 +85,14 @@ class Charging_model extends Common_model{
         return $this->db->trans_status();
     }
     
-    function updateCharging($requestId, $status, $subscriptionID, $createdAt, $errorCode, $errorMessage) {
+    function updateCharging($status, $transactionId) {
         date_default_timezone_set('Asia/Dhaka');
         $now = date('Y-m-d H:i:s');
         
         $this->db->trans_start();
         $this->db->set('status', $status);
-        $this->db->set('subscriptionID', $subscriptionID);
-        $this->db->set('createdAt', $createdAt);
-        $this->db->set('errorCode', $errorCode);
-        $this->db->set('errorMessage', $errorMessage);
-        $this->db->set('responseTime', $now );
-        $this->db->where('requestId', $requestId);
+        $this->db->set('responseTime', $now);
+        $this->db->where('transactionId', $transactionId);
         $this->db->update($this->aoc_charging_details_table);
         $this->db->trans_complete();
         

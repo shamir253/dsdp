@@ -9,7 +9,9 @@ class Profile extends MY_Controller{
         
         $this->load->model("service_model");
         $this->load->model("charging_model");
-
+        $this->config->load('service_data/data', TRUE);
+        $this->load->library('Response_Data');
+		
     }
     
     function HttpPostMethod($url, $data)
@@ -68,6 +70,10 @@ class Profile extends MY_Controller{
         echo "Hi";
     }
     
+    public function getToken() {
+        echo $this->getNBoundToken();
+    }
+
     public function subscribe() {
         $serviceName = $this->input->get('serviceName');
         $package = $this->input->get('package');
@@ -110,10 +116,17 @@ class Profile extends MY_Controller{
         $payload = $payload.'&amount='.$Details['amount'];
         $payload = $payload.'&serviceId='.$Details['serviceId'];
     
-        echo $url.'?'.$payload."<br>";
+        $this->charging_model->addCharging($msisdn, $serviceName, $package, $transactionId);
+
+        $data['success'] = true;
+        $data['aoc_url'] = $url.'?'.$payload;
+
+        echo json_encode($data, JSON_UNESCAPED_SLASHES);
+        /*
+        //echo $url.'?'.$payload."<br>";
         
         $ResultData = file_get_contents($url.'?'.$payload);
-        echo $ResultData;
+        //echo $ResultData;
         
         // Need to write code for response.
         
@@ -129,7 +142,7 @@ class Profile extends MY_Controller{
         //$this->charging_model->addCharging($serviceName, $package, $requestId, $start, $end, $mobile, $email, $invoiceID, $errorCode, $errorMessage, $prevId, $channel, $ref);
         
         //echo json_encode($data, JSON_UNESCAPED_SLASHES);
-
+        */
     }
 
     
@@ -166,6 +179,47 @@ class Profile extends MY_Controller{
         
     }
     
+    public function renewSubscription()
+    {
+        $response = new Response_Data();
+        
+        $msisdn = $this->input->get('msisdn');
+        $service = $this->input->get('service');
+
+        if($msisdn == null || $service == null)
+        {
+            $response->reponse_code = "0";
+            $response->response_msg = "Invalid Parameters.";
+            echo $response->getJSONResponse($response);
+            return;
+        }
+
+        if(strlen($msisdn) != 13 || (substr($msisdn,0,5) != '88018' && substr($msisdn,0,5) != '88016')
+			|| !is_numeric($msisdn))
+		{
+			$response->reponse_code = "0";
+            $response->response_msg = "Invalid Number.";
+            $response->data = "";
+            echo $response->getJSONResponse($response);
+            return;
+		}
+
+        $package_details = $this->service_model->getServiceDetails_fromProfile($msisdn, $service);
+        if($package_details == null)
+        {
+            $response->reponse_code = "0";
+            $response->response_msg = "Invalid input parameters.";
+            $response->data = "";
+            echo $response->getJSONResponse($response);
+            return;
+        }
+
+        //print_r($package_details);;
+        $package_details = $package_details[0];
+
+        echo $this->charge_NorthBound_1stTry($msisdn, $package_details, "RENEWAL");
+    }
+
     private function charge_NorthBound_1stTry($msisdn, $package_details, $actionType){
 
         $response = new Response_Data();
@@ -190,18 +244,20 @@ class Profile extends MY_Controller{
         date_default_timezone_set('Asia/Dhaka');
         $created = date("Y-m-d\TH:i:s\Z");
 
-        $passwordDigest = $this->genrateBase24Hash((string)$nonce.(string)$created.(string)$password);
-        
+        $passwordDigest = $this->genrateBase24Hash((string)$nonce.(string)$created.(string)$package_details['password']);
 
         $headers = array(
             'Content-type: application/json',
-            'Accept: application/json',
             'Apptoken: WSSE realm="SDP", profile="UsernameToken", type="Appkey"',
-            'X-WSSE: UsernameToken Username="'.$userName.'", PasswordDigest="'.$passwordDigest.'", Nonce="'.$nonce.'", Created="'.$created.'"',
+            'X-WSSE: UsernameToken Username="'.$package_details['spId'].'", PasswordDigest="'.$passwordDigest.'", Nonce="'.$nonce.'", Created="'.$created.'"',
             'X-RequestHeader: request ServiceId="'.$package_details['serviceId'].'", oauth_token=""',
-            'Authorization: Bearer '.$token,
+            'Accept: application/json',
+            'Authorization: Bearer '.$token
         );
-        //var_dump($headers);die();
+
+        //echo "-----New Headers-----<br>";
+        //var_dump($headers);
+        //echo "<br>--------------------<br>";
 
         $rand_num = rand(1000,9999);
         $transID = "NB".$msisdn.".".round(microtime(true)).".".$rand_num;
@@ -209,36 +265,40 @@ class Profile extends MY_Controller{
         $amount = $package_details['amount'];
         $description = $package_details['robiServiceName'];
 		$code = $package_details['serviceId'];
-        $post_data = '
-        {
-            "amountTransaction": {
-                "endUserId": "tel:+'.$msisdn.'",
-                "paymentAmount": {
-                    "chargingInformation": {
-                        "amount": "'.$amount.'",
-                        "currency": "BDT",
-                        "code": "'.$code.'",
-                        "description": ["'.$description.'"]
-                    }
-                },
-                "referenceCode": "'.$transID.'",
-                "transactionOperationStatus": "Charged"
-            }
-        }';
 
-        $data_string = json_encode(json_decode($post_data));
-        //print_r($data_string);die();
+        $newData = array(
+            "amountTransaction" => array(
+                "endUserId" => "tel:".$msisdn,
+                "paymentAmount" => array(
+                    "chargingInformation" => array(
+                        "amount" => (int)$amount,
+                        "currency" => "BDT",
+                        "code" => $code,
+                        "description" => array($description)
+                    )
+                ),
+                "referenceCode" => $transID,
+                "transactionStatus" => "Charged"
+            )
+        );
 
+        //echo "<br>--------------------<br>";
+        //echo json_encode($newData);
+        //echo "<br>--------------------<br>";
+        
         $ch = curl_init($charge_api);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($newData));
 
         $result = curl_exec($ch);
-        //print_r($result);die();
+        //echo "-----Result-----<br>";
+        //print_r($result);
+        //echo "<br>--------------------<br>";
 
         $info = curl_getinfo($ch);
+        //print_r($info);
         if(curl_errno($ch) !== 0)
         {
             curl_close($ch);
@@ -365,8 +425,8 @@ class Profile extends MY_Controller{
         
         $data = array(
             'msisdn' => $msisdn,
-            'servicename' => $package_details['servicename'],
-            'packagename' => $package_details['packagename'],
+            'servicename' => $package_details['serviceName'],
+            'packagename' => $package_details['package'],
             'clientCorrelator' => $transID,
             'amount' => $package_details['amount'],
             'referenceCode' => $transID,
@@ -378,18 +438,37 @@ class Profile extends MY_Controller{
             'response_details' => $response->data
         );
 
+        //echo json_encode($data);
         $this->charging_model->insert_NBound_charging_log($data);
 
         return $response->getJSONResponse($response);
         //die();
     }
 
+    function testSendSms() {
+        $this->sendSms("25063", "8801878958625", "Test sender");
+    }
 
     public function getPackageFromSubId(){
         $msisdn = $this->input->get('subId');
         $service = $this->input->get('service');
         
         echo $this->service_model->getPackageNameFromSubId($msisdn, $service);
+    }
+
+    public function getStatus($msisdn, $serviceName) {
+        echo $this->service_model->checkStatus($msisdn, $serviceName);
+    }
+
+    public function unSubscribe($msisdn, $serviceName) {
+        $details = $this->service_model->getServiceDetails($serviceName, $this->service_model->getPackageNameFromSubId($msisdn, $serviceName));
+        
+        $this->service_model->deleteUser($msisdn, $serviceName);
+            
+        $shortCode = $this->config->item('Short_Code', 'service_data/data');
+        $unSubMsg = $this->config->item('unsubscription_msg', 'service_data/data');
+        $unSubMsg = str_replace("@package_name", $details[0]['robiServiceName'], $unSubMsg);
+        $this->sendSms($shortCode, $msisdn, $unSubMsg);
     }
     
     public function ondemand(){

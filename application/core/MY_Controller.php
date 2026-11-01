@@ -10,14 +10,16 @@ class MY_Controller extends CI_Controller
         $this->load->library('Response_Data');
 
         $this->load->model("service_model");
-
+        $this->config->load('service_data/data', TRUE);
+        $this->load->library('Response_Data');
+		
     }
 
     public function getNBoundToken()
     {
         $url = $this->config->item('getToken_api_northend', 'service_data/data');
         $basic = $this->config->item('Auth_Basic', 'service_data/data');
-        $username = $this->config->item('SP_Name', 'service_data/data');
+        $username = $this->config->item('SP_Username', 'service_data/data');
         $password = $this->config->item('SP_Password', 'service_data/data');
 
         $headers = array(
@@ -31,7 +33,8 @@ class MY_Controller extends CI_Controller
             'password' => $password,
             'scope' => 'PRODUCTION'
         );
-        //echo $url; var_dump($headers);var_dump($params);die();
+        //echo $url; var_dump($headers);var_dump($params);
+        //echo "<br>--------------------<br>";
 
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
@@ -46,6 +49,7 @@ class MY_Controller extends CI_Controller
 
         $info = curl_getinfo($ch);
         //print_r($info);
+        //echo "<br>--------------------<br>";
 
         if (curl_errno($ch) !== 0) {
             $resp = "Error: " . curl_error($ch);
@@ -55,9 +59,12 @@ class MY_Controller extends CI_Controller
 
         curl_close($ch);
 
+        //echo "-----Result-----<br>";
         //var_dump($result);
         $obj = json_decode($result, true);
-        //var_dump($obj);//die();
+        //echo "-----Result-----<br>";
+        //var_dump($obj);
+        //echo "<br>--------------------<br>";
 
         if (isset($obj['access_token']) && !empty($obj['access_token'])) {
             return $obj['access_token'];
@@ -204,6 +211,8 @@ class MY_Controller extends CI_Controller
                     'server_refId' => $serverTransID,
                     'isNow' => 1
                 );
+
+                
             } else if (isset($obj['Fault']) && !empty($obj['Fault'])) {
                 if (isset($obj['Fault']['error_code']))
                     $error_code = $obj['Fault']['error_code'];
@@ -232,7 +241,8 @@ class MY_Controller extends CI_Controller
                 );
             }
 
-            $this->service_model->insert_Into_Outbox($data);
+            //echo json_encode($data);
+            //$this->service_model->insert_Into_Outbox($data);
         }
 
 
@@ -240,7 +250,7 @@ class MY_Controller extends CI_Controller
         $response->reponse_code = "0";
         $response->response_msg = "SUCCESS";
         //$response->data = "Internal Error";
-        echo $response->getJSONResponse($response);
+        //echo $response->getJSONResponse($response);
         return;
     }
 

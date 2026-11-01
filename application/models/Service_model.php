@@ -11,7 +11,32 @@ class Service_model extends Common_model{
 		return $query->result_array();
 	}
 
-    	public function insert_Into_Outbox($data){
+    public function getServiceDetails_fromProfile($msisdn, $service){
+		$servicename = "";
+		$packagename = "";
+
+		$this->db->where('service_name', $service);
+		$this->db->where('msisdn', $msisdn);
+        $this->db->limit(1);
+        $this->db->order_by("id", "desc");
+        $query = $this->db->get($this->tbl_subscriber_profile);
+		//echo $this->db->last_query();die();
+		if ($query->num_rows() > 0)
+		{
+			$package = $query->first_row('array');
+			$servicename = $package['service_name'];
+			$packagename = $package['package_name'];
+
+			//print_r($package);die();
+		}
+
+		$sql = "SELECT * FROM ".$this->package_table." where servicename = '$servicename' and package = '$packagename'";
+		$query 	= $this->db->query($sql);
+		//echo $this->db->last_query();die();
+		return $query->result_array();
+	}
+
+    public function insert_Into_Outbox($data){
 		$sender = isset($data['sender'])?$data['sender']:"";
 		$receiver = isset($data['receiver'])?$data['receiver']:"";
 		$message = isset($data['message'])?$data['message']:"";
@@ -73,8 +98,8 @@ class Service_model extends Common_model{
 		return $query->result_array();
 	}
 
-    public function getSubscriptionDetailHisotryFromMsisdn($msisdn){
-		$sql = "SELECT * FROM ".$this->tbl_subscriber_profile_hisotry." where msisdn = '$msisdn'";
+    public function getSubscriptionDetailHistoryFromMsisdn($msisdn){
+		$sql = "SELECT * FROM ".$this->tbl_subscriber_profile_history." where msisdn = '$msisdn' order by id desc";
 		$query 	= $this->db->query($sql);
 		//echo $this->db->last_query();die();
 		return $query->result_array();
@@ -169,6 +194,30 @@ class Service_model extends Common_model{
             return false;
         }
 
+        function checkStatus($msisdn, $serviceName) {
+            $this->db->from($this->tbl_subscriber_profile);
+            $this->db->where('msisdn', $msisdn );
+            $this->db->where('service_name', $serviceName );
+            $this->db->where('isOndemand', 0);
+            $this->db->order_by('id', 'DESC');
+            $q = $this->db->get();
+            if($q->num_rows() > 0) {
+                return $q->row()->package_name;
+            } else {
+                $this->db->from($this->tbl_subscriber_profile);
+                $this->db->where('msisdn', $msisdn );
+                $this->db->where('service_name', $serviceName );
+                $this->db->where('isOndemand', 1);
+                $this->db->order_by('id', 'DESC');
+                $q = $this->db->get();
+                if($q->num_rows() > 0) {
+                    return $q->row()->package_name;
+                }
+            }
+
+            return "";
+        }
+
         function deleteUserFromAllServices($msisdn) {
             $str = "insert into ".$this->tbl_subscriber_profile_hisotry."(msisdn, serviceName, package, registrationTime, status, lastRenewedTime, renewTime) select msisdn, serviceName, package, registrationTime, status, lastRenewedTime, renewTime from tbl_subscriber_profile where msisdn = '{$msisdn}'";
             $query=$this->db->query($str);
@@ -179,11 +228,11 @@ class Service_model extends Common_model{
         }
 
         function deleteUser($msisdn, $service) {
-            $str = "insert into tbl_subscriber_profile_history(msisdn, serviceName, package, registrationTime, status, lastRenewedTime, renewTime) select msisdn, serviceName, package, registrationTime, status, lastRenewedTime, renewTime from tbl_subscriber_profile where msisdn = '{$msisdn}' and  serviceName = '{$service}'";
+            $str = "insert into tbl_subscriber_profile_history(msisdn, service_name, package_name, registration_time, status, last_renewed_time, renew_time, isOndemand) select msisdn, service_name, package_name, registration_time, status, last_renewed_time, renew_time, isOndemand from tbl_subscriber_profile where msisdn = '{$msisdn}' and  service_name = '{$service}' and isOndemand = 0";
             $query=$this->db->query($str);
             
             
-            $str = "delete from tbl_subscriber_profile where msisdn = '{$msisdn}' and  serviceName = '{$service}'";
+            $str = "delete from tbl_subscriber_profile where msisdn = '{$msisdn}' and  service_name = '{$service}' and isOndemand = 0";
             $query=$this->db->query($str);
         }
         
@@ -263,16 +312,30 @@ class Service_model extends Common_model{
         function getPackageNameFromSubId($msisdn, $serviceName) {
             $this->db->from($this->tbl_subscriber_profile);
             $this->db->where('msisdn', $msisdn );
-            $this->db->where('serviceName', $serviceName );
+            $this->db->where('service_name', $serviceName );
             $q = $this->db->get();
             if($q->num_rows() > 0) {
-                return $q->row()->package;
+                return $q->row()->package_name;
             }
 
             return "";
         }
         
        
+    public function getSubscriptionDetailFromMsisdnAndServiceId($msisdn, $serviceId){
+		$sql = "SELECT top 1 * FROM ".$this->package_table." where serviceId = '$serviceId'";
+		$query 	= $this->db->query($sql);
+		if($query->num_rows() > 0) {
+            $services = $query->result_array();
+            $service = $services[0];
+
+            $sql = "SELECT * FROM ".$this->tbl_subscriber_profile." where msisdn = '$msisdn' and service_name = '$service[serviceName]' and package_name = '$service[package]'";
+		    $query 	= $this->db->query($sql);
+		    return $query->result_array();
+        }
         
+        return [];
+	}
+
 }
 ?>
